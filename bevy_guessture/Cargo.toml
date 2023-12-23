@@ -1,0 +1,24 @@
+[package]
+name = "bevy_guessture"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "train"
+
+[lib]
+name = "bevy_guessture"
+
+[dependencies]
+bevy_common_assets = { version = "0.7.0", features = ["ron"] }
+guessture = { path = "../guessture" }
+bevy = { version = "0.11", default-features = false, features = [
+    "bevy_asset",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "default_font",
+] }
+serde = "1.0"
