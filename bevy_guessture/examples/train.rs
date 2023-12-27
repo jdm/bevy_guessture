@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
-use bevy_guessture::{GuessturePlugin, GestureRecord, GestureState, RecordedPath};
+use bevy_guessture::{GuessturePlugin, GestureRecord, GestureState, RecordedPath, GestureTemplates};
 use guessture::{Template, find_matching_template_with_defaults};
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 
 #[derive(Copy, Clone)]
 enum RecordType {
@@ -9,15 +12,19 @@ enum RecordType {
     Attempt,
 }
 
+#[derive(Default, Resource)]
+struct RecordState {
+    state: Option<RecordType>,
+}
+
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
-        //.insert_resource(MousePath::default())
+        .init_resource::<RecordState>()
         .add_event::<VisiblePathEvent>()
         .add_event::<TextEvent>()
         .add_systems(Update, (
-            //cursor_position,
             recorded_path,
             keyboard_input,
             create_visible_path,
@@ -27,18 +34,15 @@ fn main() {
         .add_systems(Startup, setup)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Bevy game".to_string(), // ToDo
-                // Bind to canvas included in `index.html`
+                title: "Gesture trainer".to_string(),
                 canvas: Some("#bevy".to_owned()),
-                // The canvas size is constrained in index.html and build/web/styles.css
                 fit_canvas_to_parent: true,
-                // Tells wasm not to override default event handling, like F5 and Ctrl+R
                 prevent_default_event_handling: false,
                 ..default()
             }),
             ..default()
         }))
-        .add_plugins(GuessturePlugin::<RecordType>::new())
+        .add_plugins(GuessturePlugin::default())
         .run();
 }
 
@@ -46,27 +50,25 @@ fn setup(
     mut commands: Commands,
 ) {
     commands.spawn((Camera2dBundle::default(), MainCamera));
-}
 
-/*#[derive(Default, Resource)]
-struct MousePath {
-    path: Option<Path2D>,
-    templates: Vec<Template>,
-}
-
-fn cursor_position(
-    mut cursor_evr: EventReader<CursorMoved>,
-    mut mouse_path: ResMut<MousePath>,
-) {
-    if let Some(ref mut path) = mouse_path.path {
-        for ev in cursor_evr.iter() {
-            let (x, y) = (ev.position.x, ev.position.y);
-            if path.is_new_point(x, y) {
-                path.push(x, y);
+    commands.spawn((
+        TextBundle::from_section(
+            "Space: record a template\nShift: attempt a gesture\nEnter: save all templates\nO: load templates",
+            TextStyle {
+                font_size: 20.0,
+                color: Color::WHITE,
+                ..default()
             }
-        }
-    }
-}*/
+        ).with_style(
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(5.0),
+                left: Val::Px(15.0),
+                ..default()
+            },
+        ),
+    ));
+}
 
 #[derive(Event)]
 struct VisiblePathEvent {
@@ -128,16 +130,17 @@ fn fade_visible_path(
 }
 
 fn recorded_path(
-    mut events: EventReader<RecordedPath<RecordType>>,
+    mut events: EventReader<RecordedPath>,
     mut state: ResMut<GestureState>,
     mut path_events: EventWriter<VisiblePathEvent>,
+    mut record_state: ResMut<RecordState>,
 ) {
     for event in events.iter() {
-        match event.data {
+        match record_state.state.as_ref().unwrap() {
             RecordType::Attempt => {
                 let matched_template = find_matching_template_with_defaults(
                     &state.templates,
-                    event.path.clone(),
+                    &event.path,
                 );
                 match matched_template {
                     Ok((template, score)) if score >= 0.8 => {
@@ -157,7 +160,7 @@ fn recorded_path(
             RecordType::Template => {
                 let Ok(template) = Template::new(
                     state.templates.len().to_string(),
-                    event.path.clone(),
+                    &event.path,
                 ) else {
                     continue;
                 };
@@ -169,60 +172,60 @@ fn recorded_path(
                 });
             }
         }
+        record_state.state = None;
     }
+}
+
+fn save_templates(state: &GestureState) -> Result<(), ()> {
+    let serialized = state.serialize_templates()?;
+    let path = Path::new("data.gestures");
+    let mut f = File::create(path).map_err(|_| ())?;
+    f.write(serialized.as_bytes()).map_err(|_| ())?;
+    Ok(())
 }
 
 fn keyboard_input(
     keys: Res<Input<KeyCode>>,
-    //mut mouse_path: ResMut<MousePath>,
-    mut record_events: EventWriter<GestureRecord<RecordType>>,
+    mut record_events: EventWriter<GestureRecord>,
     mut ui_events: EventWriter<TextEvent>,
+    state: Res<GestureState>,
+    server: Res<AssetServer>,
+    mut record_state: ResMut<RecordState>,
 ) {
     if keys.just_pressed(KeyCode::ShiftLeft) {
-        //mouse_path.path = Some(Path2D::default());
+        record_state.state = Some(RecordType::Attempt);
         record_events.send(GestureRecord::Start);
         ui_events.send(TextEvent::Show("Recording".to_owned()));
     }
     if keys.just_released(KeyCode::ShiftLeft) {
-        //let path = mem::take(&mut mouse_path.path).unwrap();
-        //let points = path.points();
-        //let matched_template = find_matching_template_with_defaults(&mouse_path.templates, path);
-        record_events.send(GestureRecord::Stop(RecordType::Attempt));
+        record_events.send(GestureRecord::Stop);
         ui_events.send(TextEvent::Hide);
-        /*match matched_template {
-            Ok((template, score)) if score >= 0.8 => {
-                println!("matched {} with score {}", template.name, score);
-                events.send(VisiblePathEvent {
-                    color: Color::GREEN,
-                    path: points,
-                });
-            }
-            Ok((template, score)) => {
-                println!("matched {} but with score {}", template.name, score);
-            }
-            Err(err) => println!("failed to match: {:?}", err),
-        }*/
     }
 
     if keys.just_pressed(KeyCode::Space) {
-        //mouse_path.path = Some(Path2D::default());
+        record_state.state = Some(RecordType::Template);
         record_events.send(GestureRecord::Start);
-        ui_events.send(TextEvent::Show("Recording template".to_owned()));        
+        ui_events.send(TextEvent::Show("Recording template".to_owned()));
     }
     if keys.just_released(KeyCode::Space) {
-        record_events.send(GestureRecord::Stop(RecordType::Template));
+        record_events.send(GestureRecord::Stop);
         ui_events.send(TextEvent::Hide);
-        /*let path = mem::take(&mut mouse_path.path).unwrap();
-        let points = path.points();
-        let Ok(template) = Template::new(mouse_path.templates.len().to_string(), path) else {
-            return;
-        };
-        println!("done recording template {}", template.name);
-        mouse_path.templates.push(template);
-        events.send(VisiblePathEvent {
-            color: Color::BLUE,
-            path: points,
-        });*/
+    }
+
+    if keys.just_released(KeyCode::Return) {
+         match save_templates(&state) {
+            Ok(()) => {
+                ui_events.send(TextEvent::Show("Saved templates".to_owned()));
+            }
+            Err(()) => {
+                ui_events.send(TextEvent::Show("Error saving templates".to_owned()));
+            }
+        }
+    }
+
+    if keys.just_released(KeyCode::O) {
+        let _handle: Handle<GestureTemplates> = server.load("data.gestures");
+        ui_events.send(TextEvent::Show("Loading templates".to_owned()));
     }
 }
 
@@ -241,6 +244,10 @@ fn update_text(
     mut commands: Commands,
 ) {
     for event in events.iter() {
+        for entity in &query {
+            commands.entity(entity).despawn();
+        }
+
         match event {
             TextEvent::Show(ref text) => {
                 commands.spawn((
@@ -262,10 +269,8 @@ fn update_text(
                     ),
                 ));
             }
-            TextEvent::Hide => {
-                let entity = query.single();
-                commands.entity(entity).despawn();
-            }
+
+            TextEvent::Hide => ()
         }
     }
 }

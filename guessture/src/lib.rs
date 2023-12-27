@@ -26,11 +26,10 @@ impl Path2D {
     }
 
     fn length(&self) -> PathCoord {
-        let mut i = 1;
         let mut total: PathCoord = 0.0;
-        while i < self.points.len() {
-            total += self.points[i].distance_to(self.points[i - 1]);
-            i += 1;
+        for points in self.points.windows(2) {
+            let [point_a, point_b] = points else { continue };
+            total += point_b.distance_to(*point_a);
         }
         assert!(total >= 0.0);
         return total;
@@ -99,21 +98,21 @@ impl Path2D {
     fn rotate_by(&self, radians: f32) -> Path2D {
         let centroid = self.centroid();
         let (sin, cos) = radians.sin_cos();
-        let mut rotated = Path2D {
-            points: vec![]
-        };
-
-        for point in &self.points {
-            let adjusted = *point - centroid;
-            let qx = adjusted.x * cos -
-                adjusted.y * sin +
-                centroid.x;
-            let qy = adjusted.x * sin +
-                adjusted.y * cos +
-                centroid.y;
-            rotated.points.push(Point2D::new(qx, qy));
+        Path2D {
+            points: self.points
+                .iter()
+                .map(|point| {
+                    let adjusted = *point - centroid;
+                    let qx = adjusted.x * cos -
+                        adjusted.y * sin +
+                        centroid.x;
+                    let qy = adjusted.x * sin +
+                        adjusted.y * cos +
+                        centroid.y;
+                    Point2D::new(qx, qy)
+                })
+                .collect()
         }
-        return rotated;
     }
 
     #[allow(non_snake_case)]
@@ -149,16 +148,12 @@ impl Path2D {
 
     fn translate_to(&self, dest: Point2D<PathCoord>) -> Path2D {
         let centroid = self.centroid();
-        let mut translated = Path2D {
-            points: vec![],
-        };
-
-        for point in &self.points {
-            let translated_point = *point + (dest - centroid);
-            translated.points.push(translated_point);
+        Path2D {
+            points: self.points
+                .iter()
+                .map(|point| *point + (dest - centroid))
+                .collect()
         }
-
-        return translated;
     }
 
     fn gss(&self, a: f32, b: f32, template: &Path2D) -> (f32, f32) {
@@ -220,7 +215,7 @@ pub struct Template {
 }
 
 impl Template {
-    pub fn new(name: String, points: Path2D) -> Result<Template, ()> {
+    pub fn new(name: String, points: &Path2D) -> Result<Template, ()> {
         if points.points.is_empty() {
             return Err(());
         }
@@ -254,19 +249,19 @@ pub enum Error {
     NoMatch,
 }
 
-pub fn find_matching_template_with_defaults(
-    templates: &[Template],
-    path: Path2D,
-) -> Result<(&Template, f32), Error> {
+pub fn find_matching_template_with_defaults<'a, 'b>(
+    templates: &'a [Template],
+    path: &'b Path2D,
+) -> Result<(&'a Template, f32), Error> {
     return find_matching_template(templates, path, 45.0, 2.0);
 }
 
-pub fn find_matching_template(
-    templates: &[Template],
-    path: Path2D,
+pub fn find_matching_template<'a, 'b>(
+    templates: &'a [Template],
+    path: &'b Path2D,
     angle_range: f32,
     angle_precision: f32,
-) -> Result<(&Template, f32), Error> {
+) -> Result<(&'a Template, f32), Error> {
     if path.points.len() < 2 || path.length() < 100.0 {
         return Err(Error::TooShort);
     }
