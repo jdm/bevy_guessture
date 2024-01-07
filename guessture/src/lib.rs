@@ -4,22 +4,26 @@ use euclid::default::{Box2D, Point2D};
 const NUM_POINTS: usize = 64;
 const SQUARE_SIZE: f32 = 250.0;
 
-type PathCoord = f32;
+pub type PathCoord = f32;
 
+/// A 2d path made up of (x, y) point values.
 #[derive(Default, Debug, Clone)]
 pub struct Path2D {
     points: Vec<Point2D<PathCoord>>,
 }
 
 impl Path2D {
+    /// Returns the list of points that make up this path.
     pub fn points(&self) -> Vec<(PathCoord, PathCoord)> {
         self.points.iter().map(|p| (p.x, p.y)).collect()
     }
 
+    /// Add a new point to this path.
     pub fn push(&mut self, x: PathCoord, y: PathCoord) {
         self.points.push(Point2D::new(x, y));
     }
 
+    /// Returns true if the provided point is different than the last point in this path.
     pub fn is_new_point(&self, x: PathCoord, y: PathCoord) -> bool {
         let last = self.points.last();
         last.map_or(true, |last| *last != Point2D::new(x, y))
@@ -209,13 +213,24 @@ impl Path2D {
     }
 }
 
+/// A normalized gesture template.
 pub struct Template {
+    /// The name of this template.
     pub name: String,
+    /// The 2d points that make up this gesture.
     pub path: Path2D,
 }
 
+#[derive(Debug)]
+pub enum TemplateError {
+    /// The provided path was empty.
+    PathEmpty,
+}
+
 impl Template {
-    pub fn new(name: String, points: &Path2D) -> Result<Template, ()> {
+    /// Create a new normalized template from a path of arbitrary points.
+    /// Returns an error if creation fails for any reason.
+    pub fn new(name: String, points: &Path2D) -> Result<Template, TemplateError> {
         if points.points.is_empty() {
             return Err(());
         }
@@ -231,7 +246,10 @@ impl Template {
         })
     }
 
-    pub fn new_raw(name: String, points: Path2D) -> Result<Template, ()> {
+    /// Create a new template from a path of previously-normalized points.
+    /// This should only be used to create templates based on previously-constructed
+    /// template data (eg. deserializing guesture template data).
+    pub fn new_from_template(name: String, points: Path2D) -> Result<Template, ()> {
         if points.points.is_empty() {
             return Err(());
         }
@@ -245,10 +263,19 @@ impl Template {
 
 #[derive(Debug)]
 pub enum Error {
+    /// The provided path was too short to complete the match.
     TooShort,
+    /// No templat match was possible.
     NoMatch,
 }
 
+/// Given a set of templates and a path, returns the template that is the closest match.
+/// A score between 0.0 and 1.0 is returned along with the matching template; the closer
+/// to 1.0, the more exact the match. Returns an error if the matching process failed for
+/// any reason.
+///
+/// Defaults to matching paths within a 90 degree range (-45 to 45) with 2 degree precision
+/// of the original template.
 pub fn find_matching_template_with_defaults<'a, 'b>(
     templates: &'a [Template],
     path: &'b Path2D,
@@ -256,6 +283,14 @@ pub fn find_matching_template_with_defaults<'a, 'b>(
     return find_matching_template(templates, path, 45.0, 2.0);
 }
 
+/// Given a set of templates and a path, returns the template that is the closest match.
+/// A score between 0.0 and 1.0 is returned along with the matching template; the closer
+/// to 1.0, the more exact the match. Returns an error if the matching process failed for
+/// any reason.
+///
+/// Provides more configution options for the matching process. `angle_range` determines
+/// the range of rotation in degrees in which a path is compared against each template.
+/// `angle_precision` controls the precision at which rotations will be attmpted.
 pub fn find_matching_template<'a, 'b>(
     templates: &'a [Template],
     path: &'b Path2D,

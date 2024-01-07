@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_common_assets::json::JsonAssetPlugin;
-use guessture::{Path2D, Template};
+pub use guessture::*;
 use std::mem;
 
 /// Plugin object to automatically integrate gesture recognition into your Bevy app.
@@ -102,6 +102,8 @@ fn record_mouse(
     }
 }
 
+/// An asset format for serialized guesture templat data. Load a `.guessture` file to
+/// automatically update [GestureState::templates] when the asset is completely loaded.
 #[derive(serde::Deserialize, serde::Serialize, bevy::reflect::TypeUuid, bevy::reflect::TypePath)]
 #[uuid = "502fa929-bfeb-52c4-9db0-4b8b380a2c46"]
 pub struct GestureTemplates {
@@ -128,7 +130,7 @@ fn update_templates(
                     for &(x, y) in &template_data.path {
                         path.push(x, y);
                     }
-                    let Ok(template) = Template::new_raw(
+                    let Ok(template) = Template::new_from_template(
                         template_data.name.clone(), path
                     ) else {
                         continue
