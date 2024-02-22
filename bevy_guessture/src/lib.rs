@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::reflect::TypePath;
 use bevy_common_assets::json::JsonAssetPlugin;
 pub use guessture::*;
 use std::mem;
@@ -75,7 +76,7 @@ fn change_recording_state(
     mut state: ResMut<GestureState>,
     mut path_event: EventWriter<RecordedPath>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             GestureRecord::Start => state.current_recording = Some(Path2D::default()),
             GestureRecord::Stop => {
@@ -93,7 +94,7 @@ fn record_mouse(
     mut state: ResMut<GestureState>,
 ) {
     if let Some(ref mut path) = state.current_recording {
-        for ev in cursor_evr.iter() {
+        for ev in cursor_evr.read() {
             let (x, y) = (ev.position.x, ev.position.y);
             if path.is_new_point(x, y) {
                 path.push(x, y);
@@ -104,8 +105,7 @@ fn record_mouse(
 
 /// An asset format for serialized guesture templat data. Load a `.guessture` file to
 /// automatically update [GestureState::templates] when the asset is completely loaded.
-#[derive(serde::Deserialize, serde::Serialize, bevy::reflect::TypeUuid, bevy::reflect::TypePath)]
-#[uuid = "502fa929-bfeb-52c4-9db0-4b8b380a2c46"]
+#[derive(serde::Deserialize, serde::Serialize, Asset, TypePath)]
 pub struct GestureTemplates {
     templates: Vec<TemplateData>,
 }
@@ -121,10 +121,10 @@ fn update_templates(
     mut state: ResMut<GestureState>,
     assets: Res<Assets<GestureTemplates>>,
 ) {
-    for ev in ev_asset.iter() {
+    for ev in ev_asset.read() {
         match ev {
-            AssetEvent::Created { handle } => {
-                let gestures = assets.get(handle).unwrap();
+            AssetEvent::LoadedWithDependencies { id } => {
+                let gestures = assets.get(*id).unwrap();
                 for template_data in &gestures.templates {
                     let mut path = Path2D::default();
                     for &(x, y) in &template_data.path {
@@ -139,7 +139,10 @@ fn update_templates(
                 }
             }
 
-            AssetEvent::Modified { .. } | AssetEvent::Removed { .. } => continue,
+            AssetEvent::Modified { .. } |
+            AssetEvent::Removed { .. } |
+            AssetEvent::Added { .. } |
+            _ => continue,
         }
     }
 }

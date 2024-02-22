@@ -232,7 +232,7 @@ impl Template {
     /// Returns an error if creation fails for any reason.
     pub fn new(name: String, points: &Path2D) -> Result<Template, TemplateError> {
         if points.points.is_empty() {
-            return Err(());
+            return Err(TemplateError::PathEmpty);
         }
 
         let points = points.resample(NUM_POINTS);
@@ -249,9 +249,9 @@ impl Template {
     /// Create a new template from a path of previously-normalized points.
     /// This should only be used to create templates based on previously-constructed
     /// template data (eg. deserializing guesture template data).
-    pub fn new_from_template(name: String, points: Path2D) -> Result<Template, ()> {
+    pub fn new_from_template(name: String, points: Path2D) -> Result<Template, TemplateError> {
         if points.points.is_empty() {
-            return Err(());
+            return Err(TemplateError::PathEmpty);
         }
 
         Ok(Template {
@@ -304,7 +304,10 @@ pub fn find_matching_template<'a, 'b>(
     let diagonal = (2.0f32 * SQUARE_SIZE * SQUARE_SIZE).sqrt();
     let half_diagonal = 0.5f32 * diagonal;
 
-    let candidate = Template::new("".to_owned(), path).map_err(|()| Error::TooShort)?;
+    let candidate = match Template::new("".to_owned(), path) {
+        Ok(template) => template,
+        Err(TemplateError::PathEmpty) => unreachable!(),
+    };
 
     let angle_range: f32 = Angle::degrees(angle_range).get();
     let angle_precision: f32 = Angle::degrees(angle_precision).get();

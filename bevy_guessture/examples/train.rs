@@ -36,7 +36,6 @@ fn main() {
             primary_window: Some(Window {
                 title: "Gesture trainer".to_string(),
                 canvas: Some("#bevy".to_owned()),
-                fit_canvas_to_parent: true,
                 prevent_default_event_handling: false,
                 ..default()
             }),
@@ -91,7 +90,7 @@ fn create_visible_path(
     mut commands: Commands,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    for ev in events.iter() {
+    for ev in events.read() {
         let (camera, camera_transform) = q_camera.single();
         for point in &ev.path {
             let Some(remapped) = camera.viewport_to_world_2d(
@@ -104,7 +103,7 @@ fn create_visible_path(
             commands.spawn((
                 PathComponent,
                 MaterialMesh2dBundle {
-                    mesh: meshes.add(shape::Circle::new(RADIUS).into()).into(),
+                    mesh: meshes.add(Circle::new(RADIUS)).into(),
                     material: materials.add(ColorMaterial::from(ev.color)),
                     transform: Transform::from_translation(
                         Vec3::new(remapped.x, remapped.y, 0.),
@@ -135,7 +134,7 @@ fn recorded_path(
     mut path_events: EventWriter<VisiblePathEvent>,
     mut record_state: ResMut<RecordState>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match record_state.state.as_ref().unwrap() {
             RecordType::Attempt => {
                 let matched_template = find_matching_template_with_defaults(
@@ -185,7 +184,7 @@ fn save_templates(state: &GestureState) -> Result<(), ()> {
 }
 
 fn keyboard_input(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut record_events: EventWriter<GestureRecord>,
     mut ui_events: EventWriter<TextEvent>,
     state: Res<GestureState>,
@@ -212,7 +211,7 @@ fn keyboard_input(
         ui_events.send(TextEvent::Hide);
     }
 
-    if keys.just_released(KeyCode::Return) {
+    if keys.just_released(KeyCode::Enter) {
          match save_templates(&state) {
             Ok(()) => {
                 ui_events.send(TextEvent::Show("Saved templates".to_owned()));
@@ -223,7 +222,7 @@ fn keyboard_input(
         }
     }
 
-    if keys.just_released(KeyCode::O) {
+    if keys.just_released(KeyCode::KeyO) {
         let _handle: Handle<GestureTemplates> = server.load("data.gestures");
         ui_events.send(TextEvent::Show("Loading templates".to_owned()));
     }
@@ -243,7 +242,7 @@ fn update_text(
     query: Query<Entity, With<UiText>>,
     mut commands: Commands,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         for entity in &query {
             commands.entity(entity).despawn();
         }
