@@ -3,7 +3,9 @@ name = "guessture"
 version = "0.1.0"
 edition = "2021"
 authors = ["Josh Matthews <josh@joshmatthews.net>"]
-license = "MPL-2.0"
+license = "MIT"
+description = "Implementation of the `1 cent recognizer` algorithm in Rust"
+repository = "https://github.com/jdm/bevy_guessture"
 
 [dependencies]
 euclid = "0.22.9"

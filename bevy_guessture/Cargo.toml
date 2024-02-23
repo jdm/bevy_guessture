@@ -3,7 +3,9 @@ name = "bevy_guessture"
 version = "0.1.0"
 edition = "2021"
 authors = ["Josh Matthews <josh@joshmatthews.net>"]
-license = "MPL-2.0"
+license = "MIT"
+description = "Bevy plugin wrapping the `guessture` crate's gesture recognition API."
+repository = "https://github.com/jdm/bevy_guessture"
 
 [[example]]
 name = "train"
