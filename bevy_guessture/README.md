@@ -48,3 +48,11 @@ fn recorded_path(
     }
 }
 ```
+
+## Bevy compatibility
+
+| bevy_guessture | Bevy |
+|---------------:|------|
+| main           | 0.13  |
+|----------------|-------|
+| 0.1            | 0.13  |
