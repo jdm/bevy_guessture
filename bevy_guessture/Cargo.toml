@@ -16,7 +16,7 @@ name = "bevy_guessture"
 [dependencies]
 bevy = { version = "0.13", default-features = false, features = ["bevy_asset"] }
 bevy_common_assets = { version = "0.10.0", features = ["json"] }
-guessture = { path = "../guessture" }
+guessture = { path = "../guessture", version = "0.1" }
 serde = "1.0"
 serde_json = "1"
 
