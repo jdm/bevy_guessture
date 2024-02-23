@@ -18,8 +18,7 @@ To get started, install the `GuessturePlugin` in your app and prepare a set of g
 ```
 Then prepare a set of gesture templates:
 ```rs
-fn setup(
-) {
+fn setup(server: Res<AssetServer>) {
     let _handle: Handle<GestureTemplates> = server.load("data.gestures");
 }
 ```
