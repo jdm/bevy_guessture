@@ -36,15 +36,17 @@ fn recorded_path(
     mut events: EventReader<RecordedPath>,
     mut state: ResMut<GestureState>,
 ) {
-    let matched_template = find_matching_template_with_defaults(
-        &state.templates,
-        &event.path,
-    );
-    match matched_template {
-        Ok((template, score)) =>
-            println!("matched {} with score {}", template.name, score),
-        Err(err) =>
-            println!("failed to match: {:?}", err),
+    for event in events.read() {
+        let matched_template = find_matching_template_with_defaults(
+            &state.templates,
+            &event.path,
+        );
+        match matched_template {
+            Ok((template, score)) =>
+                println!("matched {} with score {}", template.name, score),
+            Err(err) =>
+                println!("failed to match: {:?}", err),
+        }
     }
 }
 ```
